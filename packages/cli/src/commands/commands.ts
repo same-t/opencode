@@ -600,6 +600,12 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
           Flag.withDescription("Setup password (or OPENCODE_SAMET_PASSWORD; default: samet123)"),
           Flag.optional,
         ),
+        serverCommand: Flag.String("server-command").pipe(
+          Flag.withDescription(
+            "Command that starts the private OpenCode server, e.g. 'opencode serve' (or OPENCODE_SAMET_SERVER_COMMAND)",
+          ),
+          Flag.optional,
+        ),
       },
     }),
   ],

@@ -66,6 +66,7 @@ export type Status = {
   readonly messages: number
   readonly active: number
   readonly version: string
+  readonly server: string
   readonly restarting: boolean
   readonly external: boolean
 }
@@ -93,6 +94,7 @@ export class Samet {
     private readonly directory: string,
     private readonly port: number,
     private readonly version: string,
+    private readonly serverLabel: string,
     private readonly options: Options = {},
     store = new Store(),
   ) {
@@ -135,6 +137,7 @@ export class Samet {
       messages: this.messages,
       active: this.bridge.active,
       version: this.version,
+      server: this.serverLabel,
       restarting: this.restarting,
       external: !isLoopback(this.host),
     }
@@ -393,6 +396,7 @@ export class Samet {
               "📊 Durum",
               `Bot: ${this.botInfo ? `@${this.botInfo.username ?? this.botInfo.name}` : "bağlı değil"}`,
               `Model: ${model}`,
+              `Sunucu: ${this.serverLabel}`,
               `Klasör: ${this.directory}`,
               `Oturum: ${title ? `${title}\n${sessionID}` : "yok"}`,
               `Aktif istek: ${this.bridge.active}`,

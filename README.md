@@ -96,6 +96,28 @@ If your shell cannot find the command, add Bun's global bin directory to `PATH`:
 The bridge always starts a private opencode server so the proxy configuration applies
 only to this bridge.
 
+### Free models and the private server
+
+A build from source reports itself as `local`, and the OpenCode Zen gateway only grants
+free models to official releases. To use free models, install the official CLI and let the
+bridge start it as its private server:
+
+```bash
+npm install -g @opencode/cli
+```
+
+The bridge detects an installed `opencode` on `PATH` and runs it with `opencode serve`.
+The setup UI shows the choice in the **Sunucu** row and `/status` prints `Sunucu:`. To pick
+a different command:
+
+```bash
+opencode-samet /path/to/project --server-command "opencode serve"
+```
+
+`--server-command` (or `OPENCODE_SAMET_SERVER_COMMAND`) survives restarts and updates.
+Without an installed CLI the bridge falls back to its own server, which works with paid
+providers but cannot use the free models.
+
 ### Update the fork
 
 Use **Güncelleme Kontrol** → **Güncelle** in the setup UI, or update manually:
@@ -120,8 +142,8 @@ Open <http://127.0.0.1:1010> after starting the command.
 3. **Model**: press **Modelleri Getir**, select a model, then **Kopyala** or **Kaydet**.
 4. **Sürüm Kontrol**: press **Güncelleme Kontrol** to compare with GitHub. If commits are
    available, **Güncelle** pulls them and restarts the bridge.
-5. **Durum** shows the bot, working directory, sessions, active requests, and the last
-   error.
+5. **Durum** shows the bot, working directory, private server, sessions, active requests,
+   and the last error.
 
 The UI only listens on `127.0.0.1` by default. See [Password and external access](#password-and-external-access).
 
@@ -200,14 +222,15 @@ Settings live in `~/.config/opencode/samet.json` with owner-only permissions whe
 platform allows it. The file stores the bot token, proxy, selected model, and per-chat
 session IDs.
 
-| Variable                      | Purpose                                                        |
-| ----------------------------- | -------------------------------------------------------------- |
-| `OPENCODE_CONFIG_DIR`         | Override the settings directory.                               |
-| `OPENCODE_SAMET_DIRECTORY`    | Default working directory when no directory argument is given. |
-| `OPENCODE_SAMET_HOST`         | Default bind address; same as `--host`.                        |
-| `OPENCODE_SAMET_PASSWORD`     | Setup password; same as `--password`.                          |
-| `OPENCODE_SAMET_TELEGRAM_API` | Telegram API base URL; useful for tests.                       |
-| `OPENCODE_BUN_PATH`           | Bun executable used by the `opencode-samet` launcher.          |
+| Variable                        | Purpose                                                              |
+| ------------------------------- | -------------------------------------------------------------------- |
+| `OPENCODE_CONFIG_DIR`           | Override the settings directory.                                     |
+| `OPENCODE_SAMET_DIRECTORY`      | Default working directory when no directory argument is given.       |
+| `OPENCODE_SAMET_HOST`           | Default bind address; same as `--host`.                              |
+| `OPENCODE_SAMET_PASSWORD`       | Setup password; same as `--password`.                                |
+| `OPENCODE_SAMET_SERVER_COMMAND` | Command for the private opencode server; same as `--server-command`. |
+| `OPENCODE_SAMET_TELEGRAM_API`   | Telegram API base URL; useful for tests.                             |
+| `OPENCODE_BUN_PATH`             | Bun executable used by the `opencode-samet` launcher.                |
 
 ## Development
 

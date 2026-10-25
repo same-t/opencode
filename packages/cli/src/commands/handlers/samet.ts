@@ -5,7 +5,7 @@ import { Commands, Server } from "../commands"
 import { Runtime } from "../../framework/runtime"
 import { Standalone } from "../../services/standalone"
 import { ServerConnection } from "../../services/server-connection"
-import { OPENCODE_VERSION } from "../../version"
+import { OPENCODE_LOCAL, OPENCODE_VERSION } from "../../version"
 import { errorMessage } from "../../util/error"
 import { selfCommand } from "../../util/process"
 
@@ -27,10 +27,12 @@ export default Runtime.handler(
     // The bridge needs its own private server so proxy environment variables
     // reach every model request instead of the shared background service.
     const explicitServer = Option.getOrUndefined(Option.flatten(yield* Effect.serviceOption(Server)))
+    const customServerCommand = Option.getOrUndefined(input.serverCommand) || process.env.OPENCODE_SAMET_SERVER_COMMAND
+    const server = resolveServer(customServerCommand)
     const endpoint =
       explicitServer !== undefined
         ? (yield* ServerConnection.resolve({ server: explicitServer })).endpoint
-        : yield* Standalone.start({ env: proxyEnvironment(store.current.proxy) })
+        : yield* Standalone.start({ env: proxyEnvironment(store.current.proxy), command: server.command })
 
     const { Samet } = yield* Effect.promise(() => import("../../samet/app"))
     const app = new Samet(
@@ -38,8 +40,9 @@ export default Runtime.handler(
       directory,
       port,
       OPENCODE_VERSION,
+      explicitServer !== undefined ? `bağlı · ${explicitServer}` : server.label,
       {
-        onRestart: () => restart(directory, port, host, password, explicitServer),
+        onRestart: () => restart(directory, port, host, password, explicitServer, customServerCommand),
         host,
         password,
       },
@@ -57,6 +60,7 @@ export default Runtime.handler(
     console.log(`Setup:        ${url}`)
     for (const address of externalURLs(host, port)) console.log(`Dış erişim:   ${address}`)
     console.log(`Çalışma yeri: ${directory}`)
+    console.log(`Sunucu:       ${explicitServer !== undefined ? explicitServer : server.label}`)
     console.log(
       `Giriş:        parola korumalı (${password === DEFAULT_PASSWORD ? "varsayılan: samet123" : "--password / OPENCODE_SAMET_PASSWORD"})`,
     )
@@ -65,7 +69,14 @@ export default Runtime.handler(
   }),
 )
 
-function restart(directory: string, port: number, host: string, password: string, server?: string) {
+function restart(
+  directory: string,
+  port: number,
+  host: string,
+  password: string,
+  server?: string,
+  serverCommand?: string,
+) {
   const [executable, ...args] = selfCommand()
   if (!executable) throw new Error("Failed to resolve CLI entrypoint")
   const child = Bun.spawn(
@@ -79,6 +90,7 @@ function restart(directory: string, port: number, host: string, password: string
       "--host",
       host,
       ...(server ? ["--server", server] : []),
+      ...(serverCommand ? ["--server-command", serverCommand] : []),
     ],
     {
       cwd: process.cwd(),
@@ -91,6 +103,32 @@ function restart(directory: string, port: number, host: string, password: string
   )
   child.unref()
   setTimeout(() => process.exit(0), 250)
+}
+
+/**
+ * Source builds ("local") cannot use the OpenCode free models, because the Zen
+ * gateway only grants them to official releases. Prefer an installed opencode
+ * CLI as the private server so Telegram answers come from a build that can.
+ */
+function resolveServer(custom?: string) {
+  const input = custom?.trim()
+  if (input) {
+    const parts = input.split(/\s+/)
+    return { command: shellCommand(parts), label: input }
+  }
+  if (!OPENCODE_LOCAL) return { command: undefined, label: `opencode ${OPENCODE_VERSION}` }
+  const found = Bun.which("opencode")
+  if (!found || found === process.execPath)
+    return { command: undefined, label: `opencode ${OPENCODE_VERSION} (yerleşik)` }
+  return { command: shellCommand([found, "serve"]), label: `${found} serve` }
+}
+
+function shellCommand(parts: string[]) {
+  const [executable] = parts
+  if (!executable) throw new Error("Sunucu komutu boş olamaz.")
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(executable))
+    return [process.env.ComSpec ?? "cmd.exe", "/c", ...parts]
+  return parts
 }
 
 function externalURLs(host: string, port: number) {

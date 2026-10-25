@@ -98,6 +98,28 @@ Linux/macOS için `~/.bun/bin`, Windows için `%USERPROFILE%\.bun\bin`.
 Köprü her zaman kendi özel opencode sunucusunu başlatır; böylece proxy ayarı yalnızca bu
 köprüyü etkiler.
 
+### Ücretsiz modeller ve özel sunucu
+
+Kaynaktan derlenen sürüm kendini `local` olarak bildirir ve OpenCode Zen geçidi ücretsiz
+modelleri yalnızca resmî sürümlere verir. Ücretsiz modelleri kullanmak için resmî CLI'ı
+kurun ve köprünün onu özel sunucu olarak başlatmasına izin verin:
+
+```bash
+npm install -g @opencode/cli
+```
+
+Köprü `PATH` üzerinde kurulu bir `opencode` bulursa onu `opencode serve` ile başlatır.
+Kurulum arayüzü seçimi **Sunucu** satırında, `/status` ise `Sunucu:` alanında gösterir.
+Farklı bir komut seçmek için:
+
+```bash
+opencode-samet /yol/proje --server-command "opencode serve"
+```
+
+`--server-command` (veya `OPENCODE_SAMET_SERVER_COMMAND`) yeniden başlatma ve
+güncellemelerden sonra korunur. Kurulu bir CLI yoksa köprü kendi sunucusuna döner; bu,
+ücretli sağlayıcılarla çalışır ancak ücretsiz modelleri kullanamaz.
+
 ### Çatalı güncelleme
 
 Kurulum arayüzünde **Güncelleme Kontrol** → **Güncelle** yolunu kullanın veya elle
@@ -125,7 +147,8 @@ Komutu başlattıktan sonra <http://127.0.0.1:1010> adresini açın.
    **Kaydet** kullanın.
 4. **Sürüm Kontrol**: **Güncelleme Kontrol** ile GitHub ile karşılaştırın. Yeni commit
    varsa **Güncelle** bunları indirir ve köprüyü yeniden başlatır.
-5. **Durum**: bot, çalışma klasörü, oturumlar, aktif istekler ve son hata burada görünür.
+5. **Durum**: bot, çalışma klasörü, özel sunucu, oturumlar, aktif istekler ve son hata
+   burada görünür.
 
 Arayüz varsayılan olarak yalnızca `127.0.0.1` üzerinde dinler. Ayrıntılar için
 [Parola ve dışarıdan erişim](#parola-ve-dışarıdan-erişim) bölümüne bakın.
@@ -206,14 +229,15 @@ Ayarlar `~/.config/opencode/samet.json` dosyasında tutulur ve platform destekli
 yalnızca dosya sahibinin okuyabileceği izinlerle yazılır. Dosya bot token'ını, proxy'yi,
 seçili modeli ve sohbet başına oturum kimliklerini saklar.
 
-| Değişken                      | Amaç                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| `OPENCODE_CONFIG_DIR`         | Ayar klasörünü değiştirir.                                                |
-| `OPENCODE_SAMET_DIRECTORY`    | Klasör argümanı verilmediğinde kullanılacak çalışma klasörü.              |
-| `OPENCODE_SAMET_HOST`         | Varsayılan bağlanma adresi; `--host` ile aynı.                            |
-| `OPENCODE_SAMET_PASSWORD`     | Kurulum parolası; `--password` ile aynı.                                  |
-| `OPENCODE_SAMET_TELEGRAM_API` | Telegram API adresi; testler için kullanışlıdır.                          |
-| `OPENCODE_BUN_PATH`           | `opencode-samet` başlatıcısının kullanacağı Bun çalıştırılabilir dosyası. |
+| Değişken                        | Amaç                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `OPENCODE_CONFIG_DIR`           | Ayar klasörünü değiştirir.                                                |
+| `OPENCODE_SAMET_DIRECTORY`      | Klasör argümanı verilmediğinde kullanılacak çalışma klasörü.              |
+| `OPENCODE_SAMET_HOST`           | Varsayılan bağlanma adresi; `--host` ile aynı.                            |
+| `OPENCODE_SAMET_PASSWORD`       | Kurulum parolası; `--password` ile aynı.                                  |
+| `OPENCODE_SAMET_SERVER_COMMAND` | Özel opencode sunucusunun komutu; `--server-command` ile aynı.            |
+| `OPENCODE_SAMET_TELEGRAM_API`   | Telegram API adresi; testler için kullanışlıdır.                          |
+| `OPENCODE_BUN_PATH`             | `opencode-samet` başlatıcısının kullanacağı Bun çalıştırılabilir dosyası. |
 
 ## Geliştirme
 
