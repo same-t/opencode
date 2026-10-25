@@ -32,6 +32,36 @@ function readArgs(argv) {
 }
 
 const options = readArgs(process.argv.slice(2))
+
+// A closed stdout/stderr (pipeline, IDE terminal, detached parent) must never
+// kill the bridge: writing to a dead pipe raises EPIPE and otherwise exits.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error) => {
+    if (error?.code !== "EPIPE") {
+      try {
+        fs.appendFileSync(LOG_PATH, `[stream] ${error?.message ?? error}\n`)
+      } catch {}
+    }
+  })
+}
+
+process.on("uncaughtException", (error) => {
+  try {
+    const line = `[${new Date().toISOString()}] ERROR Beklenmeyen hata: ${error?.stack ?? error}\n`
+    fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true })
+    fs.appendFileSync(LOG_PATH, line)
+    console.error(line.trim())
+  } catch {}
+})
+process.on("unhandledRejection", (reason) => {
+  try {
+    const line = `[${new Date().toISOString()}] ERROR Yakalanmayan promise: ${reason?.stack ?? reason}\n`
+    fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true })
+    fs.appendFileSync(LOG_PATH, line)
+    console.error(line.trim())
+  } catch {}
+})
+
 if (options.help) {
   console.log(`
 opencode-samet — Telegram ↔ OpenCode köprüsü
