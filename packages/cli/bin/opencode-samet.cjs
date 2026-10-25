@@ -5,6 +5,7 @@
 // with the `samet` subcommand prepended.
 const childProcess = require("child_process")
 const fs = require("fs")
+const os = require("os")
 const path = require("path")
 
 const source = path.join(__dirname, "..", "src", "index.ts")
@@ -37,6 +38,7 @@ function bunBinary() {
   const candidates = [
     process.env.OPENCODE_BUN_PATH,
     process.env.BUN_INSTALL ? path.join(process.env.BUN_INSTALL, "bin", executable) : undefined,
+    path.join(os.homedir(), ".bun", "bin", executable),
     process.platform === "win32" && process.env.APPDATA
       ? path.join(process.env.APPDATA, "npm", "node_modules", "bun", "bin", executable)
       : undefined,

@@ -581,6 +581,7 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
     }),
     Spec.make("samet", {
       description: "Start the Telegram bridge setup server on port 1010",
+      globalFlags: ServerFlags,
       params: {
         directory: Argument.String("directory").pipe(
           Argument.withDescription("Directory OpenCode works in (default: current directory)"),

@@ -13,7 +13,16 @@ export type ChatSession = {
 export type Settings = {
   readonly enabled: boolean
   readonly token?: string
+  readonly proxy?: string
+  readonly model?: string
   readonly sessions: Record<string, ChatSession>
+}
+
+export type SettingsPatch = {
+  readonly enabled?: boolean
+  readonly token?: string | null
+  readonly proxy?: string | null
+  readonly model?: string | null
 }
 
 const empty = (): Settings => ({ enabled: false, sessions: {} })
@@ -41,13 +50,21 @@ export class Store {
     this.settings = {
       enabled: parsed.enabled === true,
       token: typeof parsed.token === "string" && parsed.token.length > 0 ? parsed.token : undefined,
+      proxy: typeof parsed.proxy === "string" && parsed.proxy.length > 0 ? parsed.proxy : undefined,
+      model: typeof parsed.model === "string" && parsed.model.length > 0 ? parsed.model : undefined,
       sessions: parsed.sessions ?? {},
     }
     return this.settings
   }
 
-  update(patch: Partial<Pick<Settings, "enabled" | "token">>) {
-    this.settings = { ...this.settings, ...patch }
+  update(patch: SettingsPatch) {
+    this.settings = {
+      ...this.settings,
+      ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+      ...("token" in patch ? { token: patch.token ?? undefined } : {}),
+      ...("proxy" in patch ? { proxy: patch.proxy ?? undefined } : {}),
+      ...("model" in patch ? { model: patch.model ?? undefined } : {}),
+    }
     return this.save()
   }
 

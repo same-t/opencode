@@ -10,6 +10,7 @@ const decodeReady = Schema.decodeUnknownPromise(Schema.fromJsonString(Ready))
 
 type Options = {
   readonly command?: ReadonlyArray<string>
+  readonly env?: Readonly<Record<string, string>>
 }
 
 const startupDirectory = process.cwd()
@@ -19,9 +20,9 @@ function command(password: string, options: Options) {
   if (!executable) throw new Error("Failed to resolve standalone server command")
   return ChildProcess.make(executable, [...args, "--stdio", "--port", "0"], {
     cwd: startupDirectory,
-    // Explicit entry wins over anything inherited, so a user-exported
+    // Explicit entries win over anything inherited, so a user-exported
     // OPENCODE_PASSWORD cannot shadow the child's lease credential.
-    env: { OPENCODE_PASSWORD: password },
+    env: { OPENCODE_PASSWORD: password, ...options.env },
     extendEnv: true,
     // The server treats EOF on this pipe as the end of its ownership lease.
     // The OS closes it even when the TUI is killed before Effect finalizers run.

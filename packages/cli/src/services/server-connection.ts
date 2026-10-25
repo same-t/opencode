@@ -12,6 +12,7 @@ export type Args = {
   readonly standalone?: boolean
   readonly mismatch?: "replace" | "ignore" | "error"
   readonly onStart?: EnsureOptions["onStart"]
+  readonly env?: Readonly<Record<string, string>>
 }
 
 export type Resolved = {
@@ -44,7 +45,9 @@ export const resolve = Effect.fn("cli.server-connection.resolve")(function* (arg
     return { endpoint } satisfies Resolved
   }
   if (standalone || (yield* ServiceConfig.read()).disabled === true) {
-    return { endpoint: yield* Standalone.start() } satisfies Resolved
+    return {
+      endpoint: yield* Standalone.start({ env: args.env }),
+    } satisfies Resolved
   }
 
   const mismatch = args.mismatch ?? "ignore"

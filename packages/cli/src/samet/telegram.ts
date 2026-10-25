@@ -15,12 +15,39 @@ export type TelegramChat = {
   readonly last_name?: string
 }
 
+export type TelegramPhoto = {
+  readonly file_id: string
+  readonly file_unique_id: string
+  readonly width: number
+  readonly height: number
+  readonly file_size?: number
+}
+
+export type TelegramDocument = {
+  readonly file_id: string
+  readonly file_unique_id: string
+  readonly file_name?: string
+  readonly mime_type?: string
+  readonly file_size?: number
+}
+
 export type TelegramMessage = {
   readonly message_id: number
   readonly date: number
   readonly text?: string
+  readonly caption?: string
   readonly chat: TelegramChat
   readonly from?: TelegramUser
+  readonly photo?: TelegramPhoto[]
+  readonly document?: TelegramDocument
+  readonly video?: TelegramDocument & { readonly duration?: number; readonly width?: number; readonly height?: number }
+  readonly audio?: TelegramDocument & {
+    readonly duration?: number
+    readonly performer?: string
+    readonly title?: string
+  }
+  readonly voice?: TelegramDocument & { readonly duration?: number }
+  readonly animation?: TelegramDocument
 }
 
 export type TelegramUpdate = {
@@ -33,6 +60,13 @@ export type BotInfo = {
   readonly is_bot: boolean
   readonly first_name: string
   readonly username?: string
+}
+
+export type TelegramFile = {
+  readonly file_id: string
+  readonly file_unique_id?: string
+  readonly file_size?: number
+  readonly file_path?: string
 }
 
 export class TelegramError extends Error {
@@ -53,34 +87,23 @@ type Response<Value> = {
 }
 
 export class Telegram {
-  constructor(readonly token: string) {}
+  constructor(
+    readonly token: string,
+    readonly proxy?: string,
+  ) {}
 
   call<Value>(method: string, payload: Record<string, unknown> = {}, signal?: AbortSignal) {
-    const base = process.env.OPENCODE_SAMET_TELEGRAM_API ?? "https://api.telegram.org"
-    return fetch(`${base}/bot${this.token}/${method}`, {
+    return fetch(this.base(method), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
       signal,
+      proxy: this.proxy,
     })
       .catch((error) => {
-        throw new TelegramError(
-          method,
-          undefined,
-          `Telegram'a ulaşılamadı (${error instanceof Error ? error.message : String(error)})`,
-        )
+        throw this.transport(method, error)
       })
-      .then(async (response) => {
-        const body = (await response.json().catch(() => undefined)) as Response<Value> | undefined
-        if (!body) throw new TelegramError(method, response.status, `Telegram ${method} isteği okunamadı`)
-        if (!body.ok)
-          throw new TelegramError(
-            method,
-            body.error_code ?? response.status,
-            body.description ?? `Telegram ${method} isteği başarısız`,
-          )
-        return body.result as Value
-      })
+      .then((response) => this.decode<Value>(method, response))
   }
 
   getMe(signal?: AbortSignal) {
@@ -93,6 +116,22 @@ export class Telegram {
 
   getUpdates(offset: number, signal?: AbortSignal) {
     return this.call<TelegramUpdate[]>("getUpdates", { offset, timeout: 25, allowed_updates: ["message"] }, signal)
+  }
+
+  getFile(fileID: string, signal?: AbortSignal) {
+    return this.call<TelegramFile>("getFile", { file_id: fileID }, signal)
+  }
+
+  async download(filePath: string, signal?: AbortSignal) {
+    const base = process.env.OPENCODE_SAMET_TELEGRAM_API ?? "https://api.telegram.org"
+    const response = await fetch(`${base}/file/bot${this.token}/${filePath}`, {
+      signal,
+      proxy: this.proxy,
+    }).catch((error) => {
+      throw this.transport("download", error)
+    })
+    if (!response.ok) throw new TelegramError("download", response.status, `Dosya indirilemedi (${response.status})`)
+    return new Uint8Array(await response.arrayBuffer())
   }
 
   sendMessage(chatID: number, text: string, signal?: AbortSignal) {
@@ -110,10 +149,60 @@ export class Telegram {
       signal,
     )
   }
+
+  sendPhoto(chatID: number, file: string | Blob, caption?: string, name?: string, signal?: AbortSignal) {
+    const form = new FormData()
+    form.set("chat_id", String(chatID))
+    if (caption) form.set("caption", caption.slice(0, 1_024))
+    if (typeof file === "string") form.set("photo", Bun.file(file), name)
+    else form.set("photo", file, name)
+    return this.upload<TelegramMessage>("sendPhoto", form, signal)
+  }
+
+  sendDocument(chatID: number, file: string | Blob, caption?: string, name?: string, signal?: AbortSignal) {
+    const form = new FormData()
+    form.set("chat_id", String(chatID))
+    if (caption) form.set("caption", caption.slice(0, 1_024))
+    if (typeof file === "string") form.set("document", Bun.file(file), name)
+    else form.set("document", file, name)
+    return this.upload<TelegramMessage>("sendDocument", form, signal)
+  }
+
+  private upload<Value>(method: string, body: FormData, signal?: AbortSignal) {
+    return fetch(this.base(method), { method: "POST", body, signal, proxy: this.proxy })
+      .catch((error) => {
+        throw this.transport(method, error)
+      })
+      .then((response) => this.decode<Value>(method, response))
+  }
+
+  private async decode<Value>(method: string, response: globalThis.Response) {
+    const body = (await response.json().catch(() => undefined)) as Response<Value> | undefined
+    if (!body) throw new TelegramError(method, response.status, `Telegram ${method} isteği okunamadı`)
+    if (!body.ok)
+      throw new TelegramError(
+        method,
+        body.error_code ?? response.status,
+        body.description ?? `Telegram ${method} isteği başarısız`,
+      )
+    return body.result as Value
+  }
+
+  private base(method: string) {
+    return `${process.env.OPENCODE_SAMET_TELEGRAM_API ?? "https://api.telegram.org"}/bot${this.token}/${method}`
+  }
+
+  private transport(method: string, error: unknown) {
+    return new TelegramError(
+      method,
+      undefined,
+      `Telegram'a ulaşılamadı (${error instanceof Error ? error.message : String(error)})`,
+    )
+  }
 }
 
-export async function validateToken(token: string) {
-  return new Telegram(token).getMe(AbortSignal.timeout(10_000))
+export async function validateToken(token: string, proxy?: string) {
+  return new Telegram(token, proxy).getMe(AbortSignal.timeout(10_000))
 }
 
 export function splitMessage(text: string, limit = 4_000) {
