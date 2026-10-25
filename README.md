@@ -69,9 +69,9 @@ bun run dev:samet
 ```
 
 `dev:samet` starts the bridge in the repository root and serves the setup UI at
-<http://127.0.0.1:1010>. The first run only needs a bot token from the UI; see
-[Setup UI](#setup-ui). If you just installed Bun, open a new terminal first so `bun` is
-on `PATH`.
+<http://127.0.0.1:1010>. Log in with the setup password (default `samet123`) and add a bot
+token; see [Setup UI](#setup-ui). If you just installed Bun, open a new terminal first so
+`bun` is on `PATH`.
 
 ### Install the `opencode-samet` command globally
 
@@ -123,7 +123,35 @@ Open <http://127.0.0.1:1010> after starting the command.
 5. **Durum** shows the bot, working directory, sessions, active requests, and the last
    error.
 
-The UI only listens on `127.0.0.1`.
+The UI only listens on `127.0.0.1` by default. See [Password and external access](#password-and-external-access).
+
+## Password and external access
+
+The setup UI asks for a password before it shows the dashboard. The default password is
+`samet123`. Change it with `--password` or `OPENCODE_SAMET_PASSWORD`:
+
+```bash
+opencode-samet --password "daha-guclu-bir-parola"
+```
+
+Sessions live in memory and expire after seven days, so a restart or update logs you out.
+
+To reach the UI from another device, bind it to all interfaces:
+
+```bash
+opencode-samet --host 0.0.0.0
+```
+
+The startup output prints the network address, for example
+`http://192.168.1.20:1010/`. To bind one interface instead, pass its address:
+`opencode-samet --host 192.168.1.20`. Allow TCP port 1010 in the firewall if the page is
+not reachable.
+
+> **Security:** the setup UI can change the bot token and proxy and trigger `git pull`.
+> Anyone who can reach the port and knows the password controls those settings. Change the
+> default password before exposing the UI. Do not forward plain HTTP to the internet; use a
+> VPN or an HTTPS tunnel (Tailscale, Cloudflare Tunnel, SSH tunnel) instead. The login
+> password travels over the network, so plain HTTP is only appropriate on a trusted LAN.
 
 ## Telegram commands
 
@@ -157,6 +185,8 @@ session IDs.
 | ----------------------------- | -------------------------------------------------------------- |
 | `OPENCODE_CONFIG_DIR`         | Override the settings directory.                               |
 | `OPENCODE_SAMET_DIRECTORY`    | Default working directory when no directory argument is given. |
+| `OPENCODE_SAMET_HOST`         | Default bind address; same as `--host`.                        |
+| `OPENCODE_SAMET_PASSWORD`     | Setup password; same as `--password`.                          |
 | `OPENCODE_SAMET_TELEGRAM_API` | Telegram API base URL; useful for tests.                       |
 | `OPENCODE_BUN_PATH`           | Bun executable used by the `opencode-samet` launcher.          |
 

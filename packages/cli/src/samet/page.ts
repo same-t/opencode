@@ -1,4 +1,4 @@
-export function renderPage(port: number) {
+export function renderPage(port: number, host = "127.0.0.1") {
   return `<!doctype html>
 <html lang="tr">
 <head>
@@ -57,6 +57,7 @@ export function renderPage(port: number) {
   .badge.err::before { background: var(--bad); }
   .badge.warn { color: var(--warn); }
   .badge.warn::before { background: var(--warn); }
+  .logout { margin-left: 4px; min-height: 34px; padding: 0 12px; font-size: 12.5px; }
   .card {
     background: var(--card);
     border: 1px solid var(--line);
@@ -162,6 +163,7 @@ export function renderPage(port: number) {
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (max-width: 540px) {
     body { padding: 24px 12px 40px; }
+    .brand { flex-wrap: wrap; }
     dl { grid-template-columns: 1fr; gap: 4px; }
     dd { margin-bottom: 8px; }
     .card { padding: 18px; }
@@ -174,9 +176,10 @@ export function renderPage(port: number) {
     <div class="mark">S</div>
     <div>
       <h1>opencode samet</h1>
-      <p class="sub">Telegram köprüsü · 127.0.0.1:${port}</p>
+      <p class="sub">Telegram köprüsü · ${escapeHTML(host)}:${port}</p>
     </div>
     <span id="badge" class="badge">Kapalı</span>
+    <button id="logout" class="ghost logout" type="button">Çıkış</button>
   </header>
 
   <div id="banner" class="banner hidden">
@@ -277,6 +280,7 @@ export function renderPage(port: number) {
     <dl>
       <dt>Bot</dt><dd id="bot">—</dd>
       <dt>Çalışma klasörü</dt><dd id="directory">—</dd>
+      <dt>Erişim</dt><dd id="access">—</dd>
       <dt>Sürüm</dt><dd id="version">—</dd>
       <dt>Oturumlar</dt><dd id="sessions">—</dd>
       <dt>İşlenen mesaj</dt><dd id="messages">0</dd>
@@ -350,6 +354,7 @@ export function renderPage(port: number) {
         ? "Bağlanıyor…"
         : "Kapalı"
     $("directory").textContent = state.directory || "—"
+    $("access").textContent = state.external ? "Dış erişim açık · " + (state.host || "") : "Yalnızca yerel"
     $("version").textContent = state.version || "—"
     $("sessions").textContent = String(state.sessions ?? 0)
     $("messages").textContent = String(state.messages ?? 0)
@@ -410,6 +415,10 @@ export function renderPage(port: number) {
   async function refresh() {
     try {
       const response = await fetch("/api/status", { cache: "no-store" })
+      if (response.status === 401) {
+        location.replace("/")
+        return false
+      }
       state = await response.json()
       if (state.enabled) pending = false
       if (state.restarting) startRestartWatch()
@@ -426,6 +435,10 @@ export function renderPage(port: number) {
 
   async function request(path, options) {
     const response = await fetch(path, options)
+    if (response.status === 401) {
+      location.replace("/")
+      throw new Error("Giriş gerekli.")
+    }
     const result = await response.json().catch(() => ({}))
     if (!response.ok || result.error) throw new Error(result.error || "İstek başarısız")
     return result
@@ -709,9 +722,166 @@ export function renderPage(port: number) {
     }
   })
 
+  $("logout").addEventListener("click", async () => {
+    await fetch("/api/logout", { method: "POST" }).catch(() => {})
+    location.replace("/")
+  })
+
   refresh()
   setInterval(refresh, 3500)
 </script>
 </body>
 </html>`
+}
+
+export function renderLogin(port: number, host = "127.0.0.1") {
+  return `<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>opencode samet · Giriş</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #080b10;
+    --card: rgba(255, 255, 255, 0.045);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #eef2f8;
+    --muted: #95a0b3;
+    --accent: #8aa4ff;
+    --accent-strong: #6f8df7;
+    --bad: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 15% -10%, rgba(111, 141, 247, 0.24), transparent 60%),
+      radial-gradient(700px 420px at 110% 10%, rgba(74, 222, 128, 0.1), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  .login { width: 100%; max-width: 390px; }
+  .brand { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
+  .mark {
+    width: 46px; height: 46px; border-radius: 14px;
+    display: grid; place-items: center;
+    background: linear-gradient(145deg, var(--accent), #4f5fd6);
+    color: #0a0d14; font-weight: 800; font-size: 20px;
+    box-shadow: 0 12px 30px rgba(111, 141, 247, 0.32);
+  }
+  h1 { margin: 0; font-size: 19px; letter-spacing: -0.02em; }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+  .card {
+    margin-top: 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 24px;
+    backdrop-filter: blur(18px);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  }
+  .hint { margin: 0 0 18px; color: var(--muted); font-size: 13.5px; }
+  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+  input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.34);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font: 15px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(111, 141, 247, 0.18); }
+  button {
+    width: 100%;
+    margin-top: 14px;
+    border: 0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+    color: #080b10;
+    font: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(111, 141, 247, 0.25);
+  }
+  button:hover { filter: brightness(1.06); }
+  button:disabled { opacity: 0.55; cursor: wait; }
+  .error { min-height: 18px; margin: 12px 0 0; color: var(--bad); font-size: 13px; }
+  .foot { text-align: center; color: #5f6b7f; font-size: 12px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<main class="login">
+  <div class="brand">
+    <div class="mark">S</div>
+    <div>
+      <h1>opencode samet</h1>
+      <p class="sub">Telegram köprüsü · ${escapeHTML(host)}:${port}</p>
+    </div>
+  </div>
+  <section class="card">
+    <p class="hint">Devam etmek için parolayı gir.</p>
+    <form id="loginForm">
+      <label for="password">Parola</label>
+      <input id="password" type="password" autocomplete="current-password" autofocus required />
+      <button id="loginButton" type="submit">Giriş yap</button>
+      <p id="loginError" class="error" role="alert" aria-live="polite"></p>
+    </form>
+  </section>
+  <p class="foot">Bu arayüz bot token'ını, proxy ayarını ve güncellemeyi yönetir.</p>
+</main>
+<script>
+  const form = document.getElementById("loginForm")
+  const input = document.getElementById("password")
+  const button = document.getElementById("loginButton")
+  const error = document.getElementById("loginError")
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault()
+    if (button.disabled) return
+    button.disabled = true
+    error.textContent = ""
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: input.value }),
+      })
+      if (response.ok) {
+        location.replace("/")
+        return
+      }
+      const result = await response.json().catch(() => ({}))
+      error.textContent = result.error || "Parola yanlış."
+      input.select()
+    } catch {
+      error.textContent = "Sunucuya ulaşılamadı."
+    } finally {
+      button.disabled = false
+    }
+  })
+</script>
+</body>
+</html>`
+}
+
+function escapeHTML(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    if (character === "&") return "&amp;"
+    if (character === "<") return "&lt;"
+    if (character === ">") return "&gt;"
+    if (character === '"') return "&quot;"
+    return "&#39;"
+  })
 }

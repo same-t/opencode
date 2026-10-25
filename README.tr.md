@@ -69,10 +69,10 @@ bun run dev:samet
 ```
 
 `dev:samet`, köprüyü depo kökünde başlatır ve kurulum arayüzünü
-<http://127.0.0.1:1010> adresinde açar. İlk çalıştırmada arayüzden yalnızca bot
-token'ı girmeniz yeterlidir; ayrıntılar için [Kurulum arayüzü](#kurulum-arayüzü)
-bölümüne bakın. Bun'u yeni kurduysanız `bun` komutunun `PATH` üzerinde olması için önce
-yeni bir terminal açın.
+<http://127.0.0.1:1010> adresinde açar. Kurulum parolasıyla (varsayılan `samet123`) giriş
+yapıp bot token'ını ekleyin; ayrıntılar için [Kurulum arayüzü](#kurulum-arayüzü) bölümüne
+bakın. Bun'u yeni kurduysanız `bun` komutunun `PATH` üzerinde olması için önce yeni bir
+terminal açın.
 
 ### `opencode-samet` komutunu global kurma
 
@@ -127,7 +127,37 @@ Komutu başlattıktan sonra <http://127.0.0.1:1010> adresini açın.
    varsa **Güncelle** bunları indirir ve köprüyü yeniden başlatır.
 5. **Durum**: bot, çalışma klasörü, oturumlar, aktif istekler ve son hata burada görünür.
 
-Arayüz yalnızca `127.0.0.1` üzerinde dinler.
+Arayüz varsayılan olarak yalnızca `127.0.0.1` üzerinde dinler. Ayrıntılar için
+[Parola ve dışarıdan erişim](#parola-ve-dışarıdan-erişim) bölümüne bakın.
+
+## Parola ve dışarıdan erişim
+
+Kurulum arayüzü, dashboard'u göstermeden önce parola ister. Varsayılan parola
+`samet123`'tür. `--password` veya `OPENCODE_SAMET_PASSWORD` ile değiştirin:
+
+```bash
+opencode-samet --password "daha-guclu-bir-parola"
+```
+
+Oturumlar bellekte tutulur ve yedi gün sonra dolar; yeniden başlatma veya güncelleme
+sonrasında tekrar giriş yapmanız gerekir.
+
+Arayüze başka bir cihazdan erişmek için tüm arayüzlere bağlayın:
+
+```bash
+opencode-samet --host 0.0.0.0
+```
+
+Başlangıç çıktısı ağ adresini yazar; örneğin `http://192.168.1.20:1010/`. Tek bir
+arayüze bağlanmak için adresini verin: `opencode-samet --host 192.168.1.20`. Sayfaya
+ulaşılamıyorsa güvenlik duvarında TCP 1010 portuna izin verin.
+
+> **Güvenlik:** kurulum arayüzü bot token'ını ve proxy'yi değiştirebilir, `git pull`
+> çalıştırabilir. Porta ulaşan ve parolayı bilen herkes bu ayarları kontrol eder. Arayüzü
+> dışarıya açmadan önce varsayılan parolayı değiştirin. Düz HTTP'yi internete port
+> yönlendirmeyle açmayın; bunun yerine VPN veya HTTPS tüneli (Tailscale, Cloudflare Tunnel,
+> SSH tüneli) kullanın. Parola ağ üzerinden gider; düz HTTP yalnızca güvenilir bir yerel ağ
+> için uygundur.
 
 ## Telegram komutları
 
@@ -161,6 +191,8 @@ seçili modeli ve sohbet başına oturum kimliklerini saklar.
 | ----------------------------- | ------------------------------------------------------------------------- |
 | `OPENCODE_CONFIG_DIR`         | Ayar klasörünü değiştirir.                                                |
 | `OPENCODE_SAMET_DIRECTORY`    | Klasör argümanı verilmediğinde kullanılacak çalışma klasörü.              |
+| `OPENCODE_SAMET_HOST`         | Varsayılan bağlanma adresi; `--host` ile aynı.                            |
+| `OPENCODE_SAMET_PASSWORD`     | Kurulum parolası; `--password` ile aynı.                                  |
 | `OPENCODE_SAMET_TELEGRAM_API` | Telegram API adresi; testler için kullanışlıdır.                          |
 | `OPENCODE_BUN_PATH`           | `opencode-samet` başlatıcısının kullanacağı Bun çalıştırılabilir dosyası. |
 

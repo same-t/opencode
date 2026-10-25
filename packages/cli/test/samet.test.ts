@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import { Access } from "../src/samet/auth"
 import { maskProxy, parseProxy, proxyEnvironment } from "../src/samet/proxy"
 import { splitMessage } from "../src/samet/telegram"
 
@@ -61,4 +62,36 @@ test("proxyEnvironment applies the proxy without intercepting loopback", () => {
   expect(env?.HTTPS_PROXY).toBe(env?.HTTP_PROXY)
   expect(env?.NO_PROXY).toContain("127.0.0.1")
   expect(proxyEnvironment(undefined)).toBeUndefined()
+})
+
+test("Access checks the password without leaking length differences", () => {
+  const access = new Access("samet123")
+  expect(access.verify("samet123")).toBe(true)
+  expect(access.verify("samet124")).toBe(false)
+  expect(access.verify("samet1")).toBe(false)
+  expect(access.verify("")).toBe(false)
+  expect(access.verify(123)).toBe(false)
+})
+
+test("Access issues a session cookie that authorizes and logs out", () => {
+  const access = new Access("samet123")
+  const token = access.issue()
+  const cookie = access.cookie(token)
+  expect(cookie).toContain("HttpOnly")
+  expect(cookie).toContain("SameSite=Strict")
+  expect(cookie).toContain("Path=/")
+  expect(access.authorized(cookie)).toBe(true)
+  expect(access.authorized("samet_session=yanlis")).toBe(false)
+  expect(access.authorized(undefined)).toBe(false)
+  access.logout(cookie)
+  expect(access.authorized(cookie)).toBe(false)
+})
+
+test("Access rejects an expired session", () => {
+  let now = 1_000
+  const access = new Access("samet123", () => now)
+  const cookie = access.cookie(access.issue())
+  expect(access.authorized(cookie)).toBe(true)
+  now += 7 * 24 * 60 * 60 * 1_000 + 1
+  expect(access.authorized(cookie)).toBe(false)
 })

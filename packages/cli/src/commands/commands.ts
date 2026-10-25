@@ -592,6 +592,14 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
           Flag.withDescription("Setup server port (default: 1010)"),
           Flag.optional,
         ),
+        host: Flag.String("host").pipe(
+          Flag.withDescription("Setup server bind address (default: 127.0.0.1; use 0.0.0.0 for network access)"),
+          Flag.optional,
+        ),
+        password: Flag.String("password").pipe(
+          Flag.withDescription("Setup password (or OPENCODE_SAMET_PASSWORD; default: samet123)"),
+          Flag.optional,
+        ),
       },
     }),
   ],

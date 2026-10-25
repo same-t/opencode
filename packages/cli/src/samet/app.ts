@@ -5,8 +5,9 @@ import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { errorMessage } from "../util/error"
 import { Bridge, type AskFile } from "./bridge"
+import { Access, DEFAULT_PASSWORD } from "./auth"
 import { maskToken, Store } from "./config"
-import { renderPage } from "./page"
+import { renderLogin, renderPage } from "./page"
 import { maskProxy, parseProxy, proxyEnvironment, testProxy } from "./proxy"
 import {
   splitMessage,
@@ -46,7 +47,8 @@ type Downloaded = Attachment & { readonly path: string }
 
 type Options = {
   readonly onRestart?: () => void
-  readonly external?: boolean
+  readonly host?: string
+  readonly password?: string
 }
 
 export type Status = {
@@ -59,6 +61,7 @@ export type Status = {
   readonly bot?: { readonly id: number; readonly name: string; readonly username?: string }
   readonly error?: string
   readonly directory: string
+  readonly host: string
   readonly sessions: number
   readonly messages: number
   readonly active: number
@@ -70,6 +73,8 @@ export type Status = {
 export class Samet {
   private readonly store: Store
   private readonly bridge: Bridge
+  private readonly host: string
+  private readonly access: Access
   private readonly queues = new Map<string, Promise<void>>()
   private server: ReturnType<typeof Bun.serve> | undefined
   private botAbort: AbortController | undefined
@@ -91,6 +96,8 @@ export class Samet {
     store = new Store(),
   ) {
     this.store = store
+    this.host = options.host?.trim() || "127.0.0.1"
+    this.access = new Access(options.password || DEFAULT_PASSWORD)
     this.bridge = new Bridge(endpoint, directory)
   }
 
@@ -99,12 +106,12 @@ export class Samet {
     for (const session of Object.values(this.store.current.sessions)) this.bridge.own(session.sessionID)
     this.bridge.start()
     this.server = Bun.serve({
-      hostname: "127.0.0.1",
+      hostname: this.host,
       port: this.port,
       fetch: (request) => this.fetch(request),
     })
     if (this.store.current.enabled && this.store.current.token) await this.startBot()
-    return this.server.url
+    return `http://127.0.0.1:${this.port}/`
   }
 
   status(): Status {
@@ -122,17 +129,19 @@ export class Samet {
       bot: this.botInfo,
       error: this.error,
       directory: this.directory,
+      host: this.host,
       sessions: Object.keys(this.store.current.sessions).length,
       messages: this.messages,
       active: this.bridge.active,
       version: this.version,
       restarting: this.restarting,
-      external: this.options.external === true,
+      external: !isLoopback(this.host),
     }
   }
 
   async setConfig(input: ConfigInput) {
-    if (input.enabled !== undefined && typeof input.enabled !== "boolean") throw new Error("enabled true veya false olmalı.")
+    if (input.enabled !== undefined && typeof input.enabled !== "boolean")
+      throw new Error("enabled true veya false olmalı.")
     if ("token" in input && input.token !== null && typeof input.token !== "string")
       throw new Error("token metin olmalı.")
     if ("proxy" in input && input.proxy !== null && typeof input.proxy !== "string")
@@ -494,13 +503,26 @@ export class Samet {
 
   private async fetch(request: Request) {
     const url = new URL(request.url)
+    const cookie = request.headers.get("cookie")
+    if (request.method === "POST" && url.pathname === "/api/logout") {
+      this.access.logout(cookie)
+      return json({ ok: true }, 200, { "set-cookie": this.access.clear() })
+    }
+    if (request.method === "POST" && url.pathname === "/api/login") {
+      const body = (await request.json().catch(() => undefined)) as { password?: unknown } | undefined
+      if (!this.access.verify(body?.password)) {
+        await Bun.sleep(350)
+        return json({ error: "Parola yanlış." }, 401)
+      }
+      return json({ ok: true }, 200, { "set-cookie": this.access.cookie(this.access.issue()) })
+    }
+    if (!this.access.authorized(cookie)) {
+      if (url.pathname.startsWith("/api/")) return json({ error: "Giriş gerekli." }, 401)
+      if (request.method === "GET") return html(renderLogin(this.port, url.hostname), 401)
+      return json({ error: "Bulunamadı" }, 404)
+    }
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/setup")) {
-      return new Response(renderPage(this.port), {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-        },
-      })
+      return html(renderPage(this.port, url.hostname))
     }
     if (request.method === "GET" && url.pathname === "/api/status") return json(this.status())
     if (request.method === "GET" && url.pathname === "/api/models") {
@@ -753,11 +775,33 @@ function refString(ref: { id: string; providerID: string; variant?: string }) {
   return `${ref.providerID}/${ref.id}${ref.variant ? `#${ref.variant}` : ""}`
 }
 
-function json(value: unknown, status = 200) {
+function json(value: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(value), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+      ...headers,
+    },
   })
+}
+
+function html(body: string, status = 200) {
+  return new Response(body, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+    },
+  })
+}
+
+function isLoopback(host: string) {
+  return host === "127.0.0.1" || host === "::1" || host === "[::1]" || host === "localhost"
 }
 
 function authMessage(error: unknown) {
