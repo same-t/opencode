@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>opencode-samet · Kurulum</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d10;
+        --panel: #12161b;
+        --panel-2: #171c22;
+        --border: #232a33;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --accent: #2f81f7;
+        --good: #3fb950;
+        --bad: #f85149;
+        --warn: #d29922;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(1200px 600px at 20% -10%, #16202c 0%, var(--bg) 55%);
+        color: var(--text);
+        font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .mark {
+        width: 40px; height: 40px; border-radius: 11px;
+        background: linear-gradient(135deg, #2f81f7, #8250df);
+        display: grid; place-items: center; font-size: 20px;
+        box-shadow: 0 6px 20px rgba(47, 129, 247, 0.28);
+      }
+      h1 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
+      .sub { color: var(--muted); font-size: 12.5px; margin: 1px 0 0; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+        border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
+        font-size: 12.5px; font-weight: 500;
+      }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px rgba(139, 148, 158, 0.12); }
+      .dot.on { background: var(--good); box-shadow: 0 0 0 4px rgba(63, 185, 80, 0.14); }
+      .dot.off { background: var(--bad); box-shadow: 0 0 0 4px rgba(248, 81, 73, 0.14); }
+      .card {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border: 1px solid var(--border); border-radius: 14px;
+        padding: 22px; margin-bottom: 18px;
+      }
+      .card h2 { font-size: 14.5px; margin: 0 0 4px; display: flex; align-items: center; gap: 9px; }
+      .card h2 .ico { font-size: 16px; }
+      .card .desc { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+      label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 7px; font-weight: 500; }
+      input[type="text"], input[type="password"] {
+        width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
+        background: #0d1116; color: var(--text); font: 13.5px/1.4 var(--mono);
+        outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.16); }
+      input::placeholder { color: #5b636d; }
+      .field { margin-bottom: 16px; }
+      .hint { color: var(--muted); font-size: 11.5px; margin-top: 7px; }
+      .hint a { color: var(--accent); text-decoration: none; }
+      .input-group { display: flex; gap: 8px; }
+      .input-group input { flex: 1; }
+      .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+      .switch-row .t { font-size: 13.5px; font-weight: 500; }
+      .switch-row .d { font-size: 12px; color: var(--muted); }
+      .switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
+      .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 2; }
+      .switch .track {
+        position: absolute; inset: 0; border-radius: 999px; background: #2b333d;
+        border: 1px solid var(--border); transition: background 0.18s;
+      }
+      .switch .track::after {
+        content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+        border-radius: 50%; background: #c9d1d9; transition: transform 0.18s, background 0.18s;
+      }
+      .switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+      .switch input:checked + .track::after { transform: translateX(20px); background: #fff; }
+      button {
+        font: 600 13px/1 -apple-system, "Segoe UI", sans-serif; cursor: pointer;
+        padding: 10px 16px; border-radius: 9px; border: 1px solid var(--border);
+        background: #1b222b; color: var(--text); transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      }
+      button:hover { background: #222b36; }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.primary:hover { background: #4a92f8; }
+      button.ghost { background: transparent; }
+      .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+      .status-line { font-size: 12.5px; color: var(--muted); }
+      .status-line b { color: var(--text); font-weight: 600; }
+      .grid-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+      .info { background: #0d1116; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
+      .info .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+      .info .v { font: 12.5px var(--mono); margin-top: 5px; word-break: break-all; }
+      .logs {
+        background: #06080a; border: 1px solid var(--border); border-radius: 10px;
+        height: 230px; overflow-y: auto; padding: 12px; font: 12px/1.6 var(--mono);
+      }
+      .log-line { display: flex; gap: 9px; white-space: pre-wrap; word-break: break-word; }
+      .log-line .ts { color: #4b5563; flex: 0 0 auto; }
+      .log-line .lv { flex: 0 0 auto; font-weight: 600; }
+      .lv.info { color: var(--accent); }
+      .lv.warn { color: var(--warn); }
+      .lv.error { color: var(--bad); }
+      .lv.debug { color: var(--muted); }
+      .toast {
+        position: fixed; right: 20px; bottom: 20px; max-width: 380px;
+        background: #1c2530; border: 1px solid var(--border); border-left: 3px solid var(--accent);
+        border-radius: 10px; padding: 12px 15px; font-size: 13px; box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+        opacity: 0; transform: translateY(8px); transition: opacity 0.18s, transform 0.18s; pointer-events: none;
+      }
+      .toast.show { opacity: 1; transform: translateY(0); }
+      .toast.ok { border-left-color: var(--good); }
+      .toast.err { border-left-color: var(--bad); }
+      footer { color: #5b636d; font-size: 11.5px; text-align: center; margin-top: 26px; }
+      code { font-family: var(--mono); background: #0d1116; padding: 1.5px 5px; border-radius: 5px; border: 1px solid var(--border); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">
+          <div class="mark">✈️</div>
+          <div>
+            <h1>opencode-samet</h1>
+            <p class="sub">Telegram ↔ OpenCode köprüsü · port <span id="port">1010</span></p>
+          </div>
+        </div>
+        <div class="pill"><span class="dot" id="dot"></span><span id="pillText">Yükleniyor…</span></div>
+      </header>
+
+      <section class="card">
+        <h2><span class="ico">🤖</span> Telegram</h2>
+        <p class="desc">Bot'u açtığında bu makinedeki OpenCode, Telegram'dan gelen mesajları yanıtlar.</p>
+
+        <div class="switch-row">
+          <div>
+            <div class="t">Telegram kullanılsın mı?</div>
+            <div class="d">Kapalıyken hiçbir Telegram bağlantısı kurulmaz.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="enabled" />
+            <span class="track"></span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="token">Bot token</label>
+          <div class="input-group">
+            <input type="password" id="token" placeholder="123456789:AAH…" autocomplete="off" spellcheck="false" />
+            <button type="button" id="toggleToken" class="ghost">Göster</button>
+            <button type="button" id="validate">Doğrula</button>
+          </div>
+          <div class="hint" id="tokenHint">Token'ı <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a> üzerinden alabilirsin. Token yalnızca bu bilgisayarda saklanır.</div>
+        </div>
+
+        <div class="field">
+          <label for="allowed">İzinli sohbet kimlikleri (opsiyonel)</label>
+          <input type="text" id="allowed" placeholder="örn. 123456789, -1001234567890" spellcheck="false" />
+          <div class="hint">Boş bırakılırsa botu bulan herkes kullanabilir. Sohbet kimliğini öğrenmek için bota <code>/id</code> yaz.</div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="save">Kaydet ve uygula</button>
+          <button id="stop" class="ghost">Bağlantıyı kes</button>
+          <span class="status-line" id="tgStatus"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="ico">⚙️</span> OpenCode</h2>
+        <p class="desc">Mesajlar bu klasörde, bu model ve agent ile işlenir.</p>
+
+        <div class="field">
+          <label for="workdir">Çalışma klasörü</label>
+          <input type="text" id="workdir" spellcheck="false" />
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="model">Model (opsiyonel)</label>
+            <input type="text" id="model" placeholder="provider/model" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label for="agent">Agent (opsiyonel)</label>
+            <input type="text" id="agent" placeholder="build" spellcheck="false" />
+          </div>
+        </div>
+
+        <div class="switch-row" style="margin-bottom: 6px">
+          <div>
+            <div class="t">Otomatik onay</div>
+            <div class="d">Dosya düzenleme ve komut izinlerini sormadan onayla.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="autoApprove" />
+            <span class="track"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="ico">📊</span> Durum</h2>
+        <div class="grid-info">
+          <div class="info"><div class="k">Bot</div><div class="v" id="iBot">—</div></div>
+          <div class="info"><div class="k">opencode</div><div class="v" id="iBin">—</div></div>
+          <div class="info"><div class="k">Oturum sayısı</div><div class="v" id="iSessions">—</div></div>
+          <div class="info"><div class="k">Sürüm</div><div class="v" id="iVersion">—</div></div>
+        </div>
+        <div class="actions" style="margin-top: 14px">
+          <button id="reset" class="ghost">Oturumları sıfırla</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="ico">📜</span> Canlı günlük</h2>
+        <p class="desc">Bot, gelen mesajlar ve opencode çıktıları.</p>
+        <div class="logs" id="logs"></div>
+      </section>
+
+      <footer>opencode-samet · <span id="home"></span> · <a href="/health" style="color: inherit">health</a></footer>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id)
+      let current = null
+      let toastTimer = null
+
+      function toast(message, kind = "ok") {
+        const el = $("toast")
+        el.textContent = message
+        el.className = "toast show " + kind
+        clearTimeout(toastTimer)
+        toastTimer = setTimeout(() => (el.className = "toast " + kind), 4200)
+      }
+
+      async function api(path, body) {
+        const response = await fetch(path, {
+          method: body === undefined ? "GET" : "POST",
+          headers: body === undefined ? undefined : { "content-type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        })
+        const data = await response.json().catch(() => ({ ok: false, error: "Sunucu yanıtı okunamadı" }))
+        if (!response.ok || data.ok === false) throw new Error(data.error || "İstek başarısız")
+        return data
+      }
+
+      function setDot(className) {
+        $("dot").className = "dot " + className
+      }
+
+      function tokenHint(text) {
+        $("tokenHint").innerHTML = text
+      }
+
+      function render(state) {
+        if (!state) return
+        current = state
+        const tg = state.telegram
+
+        $("port").textContent = state.server.port
+        $("home").textContent = state.server.home
+        $("iVersion").textContent = state.server.version
+        $("iBin").textContent = state.opencode.resolvedBin
+        $("iSessions").textContent = String(state.sessions)
+        $("iBot").textContent = tg.botUsername ? "@" + tg.botUsername : "bağlı değil"
+
+        if (tg.connected) {
+          setDot("on")
+          $("pillText").textContent = "Telegram bağlı"
+        } else if (tg.enabled) {
+          setDot("off")
+          $("pillText").textContent = "Bağlantı hatası"
+        } else {
+          setDot("")
+          $("pillText").textContent = "Telegram kapalı"
+        }
+
+        $("enabled").checked = Boolean(tg.enabled)
+        $("tgStatus").textContent = tg.connected
+          ? "@" + tg.botUsername + " aktif"
+          : tg.lastError
+            ? "Son hata: " + tg.lastError
+            : "Bağlantı yok"
+
+        if (tg.hasToken) {
+          $("token").placeholder = tg.tokenHint + "  (boş bırak = değiştirme)"
+          if (!tg.connected) tokenHint('Kayıtlı token: <code>' + tg.tokenHint + '</code> · değiştirmek için yenisini yaz.')
+        }
+
+        if (document.activeElement !== $("workdir")) $("workdir").value = state.opencode.workdir
+        if (document.activeElement !== $("model")) $("model").value = state.opencode.model
+        if (document.activeElement !== $("agent")) $("agent").value = state.opencode.agent
+        if (document.activeElement !== $("allowed")) $("allowed").value = (tg.allowedChatIds || []).join(", ")
+        $("autoApprove").checked = Boolean(state.opencode.autoApprove)
+
+        if (Array.isArray(state.logs) && !$("logs").dataset.hydrated) {
+          for (const entry of state.logs) appendLog(entry)
+          $("logs").dataset.hydrated = "1"
+        }
+      }
+
+      function appendLog(entry) {
+        const box = $("logs")
+        const line = document.createElement("div")
+        line.className = "log-line"
+        const ts = document.createElement("span")
+        ts.className = "ts"
+        ts.textContent = new Date(entry.time).toLocaleTimeString("tr-TR")
+        const lv = document.createElement("span")
+        lv.className = "lv " + entry.level
+        lv.textContent = entry.level.toUpperCase().padEnd(5)
+        const msg = document.createElement("span")
+        msg.textContent = entry.message
+        line.append(ts, lv, msg)
+        box.append(line)
+        while (box.childElementCount > 400) box.firstElementChild.remove()
+        box.scrollTop = box.scrollHeight
+      }
+
+      async function refresh() {
+        try {
+          render(await api("/api/state"))
+        } catch (error) {
+          toast(error.message, "err")
+        }
+      }
+
+      $("toggleToken").addEventListener("click", () => {
+        const input = $("token")
+        const show = input.type === "password"
+        input.type = show ? "text" : "password"
+        $("toggleToken").textContent = show ? "Gizle" : "Göster"
+      })
+
+      $("validate").addEventListener("click", async (event) => {
+        const button = event.currentTarget
+        button.disabled = true
+        try {
+          const token = $("token").value.trim()
+          const data = await api("/api/telegram/validate", token ? { token } : {})
+          toast("Token geçerli: @" + data.username, "ok")
+        } catch (error) {
+          toast(error.message, "err")
+        } finally {
+          button.disabled = false
+        }
+      })
+
+      $("save").addEventListener("click", async (event) => {
+        const button = event.currentTarget
+        button.disabled = true
+        try {
+          const data = await api("/api/config", {
+            telegramEnabled: $("enabled").checked,
+            botToken: $("token").value.trim(),
+            allowedChatIds: $("allowed").value,
+            workdir: $("workdir").value,
+            model: $("model").value,
+            agent: $("agent").value,
+            autoApprove: $("autoApprove").checked,
+          })
+          $("token").value = ""
+          render(data.state)
+          toast(data.message, "ok")
+        } catch (error) {
+          toast(error.message, "err")
+          refresh()
+        } finally {
+          button.disabled = false
+        }
+      })
+
+      $("stop").addEventListener("click", async () => {
+        try {
+          const data = await api("/api/telegram/stop", {})
+          render(data.state)
+          toast(data.message, "ok")
+        } catch (error) {
+          toast(error.message, "err")
+        }
+      })
+
+      $("reset").addEventListener("click", async () => {
+        try {
+          const data = await api("/api/session/reset", {})
+          render(data.state)
+          toast(data.message, "ok")
+        } catch (error) {
+          toast(error.message, "err")
+        }
+      })
+
+      refresh()
+      const events = new EventSource("/api/events")
+      events.addEventListener("state", (event) => {
+        try {
+          render(JSON.parse(event.data))
+        } catch {}
+      })
+      events.addEventListener("log", (event) => {
+        try {
+          appendLog(JSON.parse(event.data))
+        } catch {}
+      })
+      events.onerror = () => {
+        setDot("off")
+        $("pillText").textContent = "Sunucuya bağlanılamıyor"
+      }
+      setInterval(() => {
+        if (events.readyState === EventSource.CLOSED) location.reload()
+      }, 15000)
+    </script>
+  </body>
+</html>
