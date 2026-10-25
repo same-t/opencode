@@ -35,32 +35,55 @@ arayüzü.
 - **`/stop`** çalışan isteği durdurur. `/new`, `/status` ve `/help` da kullanılabilir.
 - **Windows ve Linux** üzerinde çalışır.
 
-## Gereksinimler
+## Bu çatalı indirip kurma
+
+Bu çatal **npm'de yayınlanmaz**. `npm install -g opencode-ai` ve
+[opencode.ai](https://opencode.ai) adresindeki kurulum betiği üst projeyi kurar ve
+`opencode-samet` komutunu **içermez**. Bunun yerine bu depoyu kurun.
+
+### Gereksinimler
 
 - [Bun](https://bun.sh) 1.4 veya üzeri.
-- Uygulama içi güncelleme kontrolü için Git.
+- Git (klonlama ve uygulama içi güncelleme kontrolü için).
 - [@BotFather](https://t.me/BotFather) üzerinden alınmış Telegram bot token'ı.
 - Ajanın kullanabileceği bir opencode sağlayıcısı/modeli.
 
-## Depodan çalıştırma
+### Windows
 
-```bash
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
 git clone https://github.com/same-t/opencode.git
 cd opencode
 bun install
 bun run dev:samet
 ```
 
-`dev:samet`, CLI'yı depo kökünde başlatır ve kurulum arayüzünü
-<http://127.0.0.1:1010> adresinde açar.
+### Linux / macOS
 
-Komutu bir kaynak kopyasında global hale getirmek için:
+```bash
+curl -fsSL https://bun.sh/install | bash
+git clone https://github.com/same-t/opencode.git
+cd opencode
+bun install
+bun run dev:samet
+```
+
+`dev:samet`, köprüyü depo kökünde başlatır ve kurulum arayüzünü
+<http://127.0.0.1:1010> adresinde açar. İlk çalıştırmada arayüzden yalnızca bot
+token'ı girmeniz yeterlidir; ayrıntılar için [Kurulum arayüzü](#kurulum-arayüzü)
+bölümüne bakın. Bun'u yeni kurduysanız `bun` komutunun `PATH` üzerinde olması için önce
+yeni bir terminal açın.
+
+### `opencode-samet` komutunu global kurma
+
+Depo kökü yerine her projeden çalıştırmak için:
 
 ```bash
 cd packages/cli
 bun link
 ```
 
+`bun link`, bu çatalın `opencode` ve `opencode2` komutlarını da kullanıma açar.
 Ardından:
 
 ```bash
@@ -69,8 +92,25 @@ opencode-samet /yol/proje            # başka bir klasörde çalış
 opencode-samet /yol/proje --port 1011
 ```
 
+Kabuk komutu bulamazsa Bun'un global bin klasörünü `PATH` değişkenine ekleyin:
+Linux/macOS için `~/.bun/bin`, Windows için `%USERPROFILE%\.bun\bin`.
+
 Köprü her zaman kendi özel opencode sunucusunu başlatır; böylece proxy ayarı yalnızca bu
 köprüyü etkiler.
+
+### Çatalı güncelleme
+
+Kurulum arayüzünde **Güncelleme Kontrol** → **Güncelle** yolunu kullanın veya elle
+güncelleyin:
+
+```bash
+cd opencode
+git pull
+bun install
+```
+
+Arayüz güncellemeyi yapıp köprüyü otomatik yeniden başlatır. Elle güncelledikten sonra
+`opencode-samet` komutunu yeniden başlatmanız gerekir.
 
 ## Kurulum arayüzü
 

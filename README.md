@@ -35,33 +35,54 @@ Telegram chat, plus a small Turkish setup UI on `http://127.0.0.1:1010`.
   available.
 - Works on **Windows and Linux**.
 
-## Requirements
+## Install this fork
+
+This fork is **not published to npm**. `npm install -g opencode-ai` and the install
+script on [opencode.ai](https://opencode.ai) install the upstream project and do **not**
+include `opencode-samet`. Install this repository instead.
+
+### Requirements
 
 - [Bun](https://bun.sh) 1.4 or newer.
-- Git, for the in-app update check.
+- Git (needed for cloning and for the in-app update check).
 - A Telegram bot token from [@BotFather](https://t.me/BotFather).
 - An opencode provider/model that the agent can use.
 
-## Run from a checkout
+### Windows
 
-```bash
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
 git clone https://github.com/same-t/opencode.git
 cd opencode
 bun install
 bun run dev:samet
 ```
 
-`dev:samet` starts the CLI in the repository root and serves the setup UI at
-<http://127.0.0.1:1010>.
+### Linux / macOS
 
-To expose the command globally in a checkout:
+```bash
+curl -fsSL https://bun.sh/install | bash
+git clone https://github.com/same-t/opencode.git
+cd opencode
+bun install
+bun run dev:samet
+```
+
+`dev:samet` starts the bridge in the repository root and serves the setup UI at
+<http://127.0.0.1:1010>. The first run only needs a bot token from the UI; see
+[Setup UI](#setup-ui). If you just installed Bun, open a new terminal first so `bun` is
+on `PATH`.
+
+### Install the `opencode-samet` command globally
+
+To run it from any project instead of the repository root:
 
 ```bash
 cd packages/cli
 bun link
 ```
 
-Then:
+`bun link` also exposes this fork's `opencode` and `opencode2` commands. Then:
 
 ```bash
 opencode-samet                       # work in the current directory
@@ -69,8 +90,24 @@ opencode-samet /path/to/project      # work in another directory
 opencode-samet /path/to/project --port 1011
 ```
 
+If your shell cannot find the command, add Bun's global bin directory to `PATH`:
+`~/.bun/bin` on Linux/macOS, `%USERPROFILE%\.bun\bin` on Windows.
+
 The bridge always starts a private opencode server so the proxy configuration applies
 only to this bridge.
+
+### Update the fork
+
+Use **Güncelleme Kontrol** → **Güncelle** in the setup UI, or update manually:
+
+```bash
+cd opencode
+git pull
+bun install
+```
+
+The UI updates and restarts the bridge automatically. A manual update needs a restart
+of `opencode-samet`.
 
 ## Setup UI
 
