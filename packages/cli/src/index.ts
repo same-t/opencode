@@ -80,6 +80,7 @@ const Handlers = Runtime.handlers(Commands, {
     unset: () => import("./commands/handlers/service/unset"),
   },
   serve: () => import("./commands/handlers/serve"),
+  samet: () => import("./commands/handlers/samet"),
 })
 
 Effect.gen(function* () {

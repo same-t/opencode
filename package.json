@@ -8,6 +8,7 @@
   "packageManager": "bun@1.4.4",
   "scripts": {
     "dev": "bun run --cwd packages/cli src/index.ts",
+    "dev:samet": "bun run --cwd packages/cli src/index.ts samet ../..",
     "dev:live": "sh -c 'OPENCODE_TUI_CHANNEL=dev OPENCODE_PASSWORD=\"$(opencode service get password)\" exec bun run dev \"$@\" --server \"$(opencode service status)\"' --",
     "dev:vite": "bun run --cwd packages/cli --conditions=browser dev/vite.ts",
     "dev:vite:live": "sh -c 'OPENCODE_TUI_CHANNEL=dev OPENCODE_PASSWORD=\"$(opencode service get password)\" exec bun run dev:vite \"$@\" --server \"$(opencode service status)\"' --",
