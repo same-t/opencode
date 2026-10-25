@@ -161,15 +161,34 @@ ulaşılamıyorsa güvenlik duvarında TCP 1010 portuna izin verin.
 
 ## Telegram komutları
 
-| Komut     | Açıklama                                                     |
-| --------- | ------------------------------------------------------------ |
-| `/stop`   | Çalışan isteği durdurur (`/iptal` takma adı).                |
-| `/new`    | Yeni bir opencode oturumu başlatır (`/reset` takma adı).     |
-| `/status` | Seçili modeli, klasörü, oturumu ve aktif istekleri gösterir. |
-| `/help`   | Yardım mesajını gösterir.                                    |
+| Komut            | Açıklama                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| `/chats`         | Son oturumları numaralarıyla listeler (`/sessions` takma adı).                      |
+| `/chat N`        | Bu sohbeti `N` numaralı veya kimliği bu önekle başlayan oturuma bağlar (`/switch`). |
+| `/new [başlık]`  | Yeni bir opencode oturumu başlatır (`/reset` takma adı).                            |
+| `/rename başlık` | Mevcut oturumu yeniden adlandırır (`/adlandir` takma adı).                          |
+| `/model`         | Tüm sohbetlerde kullanılan modeli gösterir.                                         |
+| `/model <ref>`   | Tüm sohbetlerin modelini ayarlar, ör. `opencode/deepseek-v4#max`.                   |
+| `/stop`          | Çalışan isteği durdurur (`/iptal` takma adı).                                       |
+| `/status`        | Seçili modeli, klasörü, oturumu ve aktif istekleri gösterir.                        |
+| `/help`          | Yardım mesajını gösterir.                                                           |
 
 Her sohbet kendi opencode oturumunu kullanır. Bir sohbetin mesajları sırayla işlenir;
 `/stop` istek çalışırken bile hemen yanıtlanır.
+
+Kurulum arayüzü veya `/status` `Conflict: terminated by other getUpdates request` yazıyorsa
+aynı bot token'ını başka bir süreç veya cihaz da uzun anketle dinliyor demektir. Bir botu aynı
+anda yalnızca bir örnek dinleyebilir. Kopyaları kapatın; bu örnek birkaç saniye içinde kendini
+toparlar:
+
+```bash
+ps -ef | grep -E "opencode-samet|src/index.ts samet" | grep -v grep
+pkill -f "src/index.ts samet"
+pkill -f opencode-samet
+```
+
+Aynı token başka bir makinede veya başka bir bot projesinde kullanılıyorsa @BotFather'dan ayrı
+bir bot oluşturun ya da o örneği durdurun.
 
 ## Dosyalar ve sınırlar
 

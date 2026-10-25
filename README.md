@@ -155,15 +155,34 @@ not reachable.
 
 ## Telegram commands
 
-| Command   | Description                                                       |
-| --------- | ----------------------------------------------------------------- |
-| `/stop`   | Stop the running request (alias `/iptal`).                        |
-| `/new`    | Start a fresh opencode session (alias `/reset`).                  |
-| `/status` | Show the selected model, directory, session, and active requests. |
-| `/help`   | Show the help message.                                            |
+| Command           | Description                                                             |
+| ----------------- | ----------------------------------------------------------------------- |
+| `/chats`          | List recent sessions with their number (alias `/sessions`).             |
+| `/chat N`         | Bind this chat to session number `N` or an ID prefix (alias `/switch`). |
+| `/new [title]`    | Start a fresh opencode session (alias `/reset`).                        |
+| `/rename <title>` | Rename the current session (alias `/adlandir`).                         |
+| `/model`          | Show the model used for all chats.                                      |
+| `/model <ref>`    | Set the model for all chats, e.g. `opencode/deepseek-v4#max`.           |
+| `/stop`           | Stop the running request (alias `/iptal`).                              |
+| `/status`         | Show the selected model, directory, session, and active requests.       |
+| `/help`           | Show the help message.                                                  |
 
 Every chat keeps its own opencode session. Messages in one chat are processed in order;
 `/stop` is handled immediately, even while a request is running.
+
+If the setup UI or `/status` reports `Conflict: terminated by other getUpdates request`,
+another process or device is long-polling the same bot token. Only one instance may poll a
+bot at a time. Stop the duplicates and this instance recovers automatically within a few
+seconds:
+
+```bash
+ps -ef | grep -E "opencode-samet|src/index.ts samet" | grep -v grep
+pkill -f "src/index.ts samet"
+pkill -f opencode-samet
+```
+
+If the same token is used on another machine or by another bot project, create a separate
+bot with @BotFather or stop that instance.
 
 ## Files and limits
 

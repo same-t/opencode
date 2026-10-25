@@ -76,6 +76,7 @@ export class Samet {
   private readonly host: string
   private readonly access: Access
   private readonly queues = new Map<string, Promise<void>>()
+  private readonly controls = new Map<string, Promise<void>>()
   private server: ReturnType<typeof Bun.serve> | undefined
   private botAbort: AbortController | undefined
   private poller: Promise<void> | undefined
@@ -277,13 +278,21 @@ export class Samet {
         }
         for (const update of updates) {
           offset = Math.max(offset, update.update_id + 1)
-          if (!update.message) continue
-          const command = controlCommand(update.message)
-          if (command)
-            this.control(bot, update.message, command).catch((error) => {
+          const message = update.message
+          if (!message) continue
+          const command = controlCommand(message)
+          if (!command) {
+            this.enqueue(bot, message)
+            continue
+          }
+          const run = () =>
+            this.control(bot, message, command).catch((error) => {
               console.error("samet: command failed", errorMessage(error))
             })
-          else this.enqueue(bot, update.message)
+          // /stop must stay immediate; other commands are ordered per chat so a
+          // quick /new followed by /chat acts on the session /new just created.
+          if (command === "/stop" || command === "/iptal") void run()
+          else this.sequence(String(message.chat.id), run)
         }
       } catch (error) {
         if (signal.aborted) return
@@ -291,6 +300,16 @@ export class Samet {
           this.phase = "error"
           this.error = "Bot token geçersiz veya yetkisiz. Token'ı kontrol edip yeniden kaydet."
           return
+        }
+        if (error instanceof TelegramError && error.code === 409) {
+          // Another process or device is long-polling the same bot token. Keep
+          // retrying so this instance recovers as soon as the duplicate stops.
+          this.phase = "error"
+          this.error =
+            "Aynı bot token'ı başka bir süreç veya cihaz da kullanıyor (Conflict). Diğer opencode-samet/bot süreçlerini kapat; bu süreç otomatik yeniden deniyor."
+          await Bun.sleep(Math.max(backoff, 5_000))
+          backoff = Math.min(backoff * 2, 15_000)
+          continue
         }
         this.phase = "error"
         this.error = errorMessage(error)
@@ -314,43 +333,184 @@ export class Samet {
     })
   }
 
+  private sequence(key: string, run: () => Promise<void>) {
+    const previous = this.controls.get(key) ?? Promise.resolve()
+    const next = previous.then(run)
+    this.controls.set(key, next)
+    void next.finally(() => {
+      if (this.controls.get(key) === next) this.controls.delete(key)
+    })
+  }
+
   private async control(bot: Telegram, message: TelegramMessage, command: string) {
     const chatID = message.chat.id
-    if (command === "/stop" || command === "/iptal") {
-      const sessionID = this.sessionID(chatID)
-      if (!sessionID) {
-        await bot.sendMessage(chatID, "ℹ️ Şu anda çalışan bir istek yok.").catch(() => {})
+    const argument = (message.text ?? "")
+      .trim()
+      .replace(/^\/\S+\s*/, "")
+      .trim()
+    try {
+      if (command === "/stop" || command === "/iptal") {
+        const sessionID = this.sessionID(chatID)
+        if (!sessionID) {
+          await bot.sendMessage(chatID, "ℹ️ Şu anda çalışan bir istek yok.").catch(() => {})
+          return
+        }
+        const stopped = await this.bridge.interrupt(sessionID)
+        if (!stopped) await bot.sendMessage(chatID, "ℹ️ Şu anda çalışan bir istek yok.").catch(() => {})
         return
       }
-      const stopped = await this.bridge.interrupt(sessionID)
-      if (!stopped) await bot.sendMessage(chatID, "ℹ️ Şu anda çalışan bir istek yok.").catch(() => {})
+      if (command === "/new" || command === "/reset") {
+        const previous = this.sessionID(chatID)
+        if (previous) await this.bridge.interrupt(previous)
+        const id = await this.newSession(message.chat, argument || undefined)
+        await bot.sendMessage(chatID, `🆕 Yeni oturum açıldı.\n${argument ? `${argument}\n` : ""}${id}`).catch(() => {})
+        return
+      }
+      if (command === "/chats" || command === "/sessions" || command === "/sohbetler") {
+        await bot.sendMessage(chatID, await this.chatList(chatID)).catch(() => {})
+        return
+      }
+      if (command === "/chat" || command === "/switch" || command === "/gec") {
+        await this.switchSession(bot, message, argument)
+        return
+      }
+      if (command === "/rename" || command === "/adlandir") {
+        await this.renameSession(bot, message, argument)
+        return
+      }
+      if (command === "/model") {
+        await this.modelCommand(bot, message, argument)
+        return
+      }
+      if (command === "/status") {
+        const sessionID = this.sessionID(chatID)
+        const title = sessionID ? this.store.current.sessions[String(chatID)]?.title : undefined
+        const model = this.store.current.model ?? "varsayılan"
+        await bot
+          .sendMessage(
+            chatID,
+            [
+              "📊 Durum",
+              `Bot: ${this.botInfo ? `@${this.botInfo.username ?? this.botInfo.name}` : "bağlı değil"}`,
+              `Model: ${model}`,
+              `Klasör: ${this.directory}`,
+              `Oturum: ${title ? `${title}\n${sessionID}` : "yok"}`,
+              `Aktif istek: ${this.bridge.active}`,
+            ].join("\n"),
+          )
+          .catch(() => {})
+        return
+      }
+      await bot.sendMessage(chatID, this.help()).catch(() => {})
+    } catch (error) {
+      await bot.sendMessage(chatID, `⚠️ ${errorMessage(error)}`).catch(() => {})
+    }
+  }
+
+  private async listSessions() {
+    const page = await this.bridge.client.session.list({
+      directory: this.directory,
+      limit: 50,
+      order: "desc",
+    })
+    return page.data.filter((session) => !session.parentID).slice(0, 20)
+  }
+
+  private async chatList(chatID: number) {
+    const sessions = await this.listSessions()
+    if (sessions.length === 0) return "Henüz oturum yok. /new ile yeni bir oturum açabilirsin."
+    const current = this.sessionID(chatID)
+    const active = sessions.findIndex((session) => session.id === current)
+    return [
+      `🧵 Oturumlar (${sessions.length})`,
+      ...sessions.map(
+        (session, index) =>
+          `${session.id === current ? "▶️" : "▫️"} ${index + 1}. ${oneLine(session.title || "Başlıksız", 40)} · ${ago(session.time.updated)} · ${session.id.slice(0, 12)}`,
+      ),
+      "",
+      active >= 0 ? `Şu an: #${active + 1}` : "Şu an: bu sohbete bağlı oturum yok",
+      "Geçmek için: /chat 2",
+    ].join("\n")
+  }
+
+  private async switchSession(bot: Telegram, message: TelegramMessage, argument: string) {
+    const chatID = message.chat.id
+    const sessions = await this.listSessions()
+    if (sessions.length === 0) {
+      await bot.sendMessage(chatID, "Henüz oturum yok. /new ile yeni bir oturum aç.").catch(() => {})
       return
     }
-    if (command === "/new" || command === "/reset") {
-      const sessionID = this.sessionID(chatID)
-      if (sessionID) await this.bridge.interrupt(sessionID)
-      const id = await this.newSession(message.chat)
-      await bot.sendMessage(chatID, `🆕 Yeni oturum açıldı.\n${id}`).catch(() => {})
+    if (!argument) {
+      await bot.sendMessage(chatID, await this.chatList(chatID)).catch(() => {})
       return
     }
-    if (command === "/status") {
-      const sessionID = this.sessionID(chatID)
-      const model = this.store.current.model ?? "varsayılan"
+    const index = Number.parseInt(argument, 10)
+    const picked = Number.isInteger(index) && index > 0 ? sessions[index - 1] : undefined
+    const session = picked ?? sessions.find((item) => item.id === argument || item.id.startsWith(argument))
+    if (!session) {
+      await bot.sendMessage(chatID, `Oturum bulunamadı: ${argument}\n/chats ile listeyi yenile.`).catch(() => {})
+      return
+    }
+    const previous = this.sessionID(chatID)
+    if (previous && previous !== session.id) await this.bridge.interrupt(previous)
+    this.bridge.own(session.id)
+    await this.store.remember(String(chatID), {
+      sessionID: session.id,
+      directory: this.directory,
+      title: session.title,
+      updatedAt: Date.now(),
+    })
+    await bot
+      .sendMessage(
+        chatID,
+        `🔀 Bu sohbet artık şu oturuma bağlı.\n#${sessions.indexOf(session) + 1} · ${session.title || "Başlıksız"}\n${session.id}`,
+      )
+      .catch(() => {})
+  }
+
+  private async renameSession(bot: Telegram, message: TelegramMessage, title: string) {
+    const chatID = message.chat.id
+    if (!title) {
+      await bot.sendMessage(chatID, "Kullanım: /rename Yeni başlık").catch(() => {})
+      return
+    }
+    const sessionID = await this.session(message.chat)
+    const name = title.slice(0, 80)
+    await this.bridge.client.session.update({ sessionID, title: name })
+    await this.store.remember(String(chatID), {
+      sessionID,
+      directory: this.directory,
+      title: name,
+      updatedAt: Date.now(),
+    })
+    await bot.sendMessage(chatID, `✏️ Oturum adı: ${name}`).catch(() => {})
+  }
+
+  private async modelCommand(bot: Telegram, message: TelegramMessage, argument: string) {
+    const chatID = message.chat.id
+    if (!argument) {
       await bot
         .sendMessage(
           chatID,
           [
-            "📊 Durum",
-            `Model: ${model}`,
-            `Klasör: ${this.directory}`,
-            `Aktif istek: ${this.bridge.active}`,
-            `Oturum: ${sessionID ?? "yok"}`,
+            `🤖 Model: ${this.store.current.model ?? "varsayılan"}`,
+            "",
+            "Değiştirmek için: /model provider/model",
+            "Varyant için: /model provider/model#varyant",
           ].join("\n"),
         )
         .catch(() => {})
       return
     }
-    await bot.sendMessage(chatID, this.help()).catch(() => {})
+    const model = await this.validateModel(argument)
+    if (!model) {
+      await bot.sendMessage(chatID, "Kullanım: /model provider/model").catch(() => {})
+      return
+    }
+    await this.store.update({ model })
+    await bot
+      .sendMessage(chatID, `✅ Model kaydedildi: ${model}\nBundan sonraki mesajlar bu modelle çalışır.`)
+      .catch(() => {})
   }
 
   private async handle(bot: Telegram, message: TelegramMessage) {
@@ -421,12 +581,12 @@ export class Samet {
     return stored?.directory === this.directory ? stored.sessionID : undefined
   }
 
-  private async newSession(chat: TelegramChat) {
+  private async newSession(chat: TelegramChat, title?: string) {
     const name =
       chat.title ?? ([chat.first_name, chat.last_name].filter(Boolean).join(" ") || chat.username || String(chat.id))
     const model = this.modelRef()
     const info = await this.bridge.client.session.create({
-      title: `Telegram · ${name}`.slice(0, 80),
+      title: (title || `Telegram · ${name}`).slice(0, 80),
       location: { directory: this.directory },
       ...(model ? { model } : {}),
     })
@@ -492,8 +652,12 @@ export class Samet {
       `📁 Çalışma klasörü: ${this.directory}`,
       "",
       "Komutlar:",
+      "/chats — oturumları listele",
+      "/chat 2 — numaraya göre oturuma geç",
+      "/new [başlık] — yeni bir OpenCode oturumu başlat",
+      "/rename başlık — mevcut oturumu adlandır",
+      "/model — modeli göster, /model provider/model ile değiştir",
       "/stop — çalışan isteği durdur",
-      "/new — yeni bir OpenCode oturumu başlat",
       "/status — model ve oturum durumu",
       "/help — bu mesajı göster",
       "",
@@ -728,11 +892,30 @@ function tail(text: string, limit: number) {
   return `…${text.slice(text.length - limit + 1)}`
 }
 
+const CONTROL_COMMANDS = [
+  "/stop",
+  "/iptal",
+  "/new",
+  "/reset",
+  "/status",
+  "/help",
+  "/start",
+  "/chats",
+  "/sessions",
+  "/sohbetler",
+  "/chat",
+  "/switch",
+  "/gec",
+  "/rename",
+  "/adlandir",
+  "/model",
+]
+
 function controlCommand(message: TelegramMessage) {
   const text = message.text?.trim().toLowerCase()
   if (!text || !text.startsWith("/")) return undefined
   const command = text.split(/\s+/)[0]?.replace(/@[\w_]+$/, "")
-  if (["/stop", "/iptal", "/new", "/reset", "/status", "/help", "/start"].includes(command ?? "")) return command
+  if (CONTROL_COMMANDS.includes(command ?? "")) return command
   return undefined
 }
 
@@ -773,6 +956,20 @@ function parseProxyInput(input: string | null | undefined) {
 
 function refString(ref: { id: string; providerID: string; variant?: string }) {
   return `${ref.providerID}/${ref.id}${ref.variant ? `#${ref.variant}` : ""}`
+}
+
+function ago(updated: number) {
+  const minutes = Math.floor(Math.max(0, Date.now() - updated) / 60_000)
+  if (minutes < 1) return "az önce"
+  if (minutes < 60) return `${minutes} dk önce`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} sa önce`
+  return `${Math.floor(hours / 24)} gün önce`
+}
+
+function oneLine(text: string, limit: number) {
+  const value = text.replace(/\s+/g, " ").trim()
+  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value
 }
 
 function json(value: unknown, status = 200, headers: Record<string, string> = {}) {
